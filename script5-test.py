@@ -97,4 +97,4 @@ if __name__ == "__main__":
         folder_name = os.path.basename(os.path.dirname(input_path)).replace(" ", "_")
         output_path = os.path.join(output_folder, f"test_output_{folder_name}.csv")
         print(f"Processing {input_path} -> {output_path}")
-        space_runs_min_gap_hard(input_path, output_path, min_gap=10)
+        space_runs_min_gap_hard(input_path, output_path, min_gap=7)
