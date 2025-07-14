@@ -74,11 +74,10 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
     result_df['Last Human Run'] = last_human_run_list
     result_df['Last Dog Run'] = last_dog_run_list
 
-    # Move index to a column called 'Run Number' starting from 1
     result_df.reset_index(inplace=True)
     result_df.rename(columns={'index': 'Run Number'}, inplace=True)
+    result_df['Run Number'] = result_df['Run Number'] + 1  # Start run numbering at 1
 
-    # Save to Excel without pandas index (clean formatting)
     result_df.to_excel(output_path, index=False)
 
     print(f"✅ Schedule saved to {output_path}")
