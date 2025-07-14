@@ -1,123 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>Dog Scheduling App</title>
+    <meta charset="UTF-8">
+    <title>Dog Scheduling 🐶</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 3rem auto;
-            max-width: 720px;
-            background-color: #f9f9f9;
-            color: #222;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 0 12px rgba(0,0,0,0.1);
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f2f6fc;
+            text-align: center;
+            padding: 40px;
+        }
+        .container {
+            background-color: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            margin: auto;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
         }
         h1 {
-            color: #1f4e79;
-            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
         }
-        input[type="file"] {
-            display: block;
-            margin: 1rem auto 1.5rem;
+        input[type=file] {
+            padding: 10px;
+            margin-top: 20px;
         }
         button {
-            background-color: #1f4e79;
+            background-color: #3498db;
             color: white;
+            padding: 12px 24px;
             border: none;
-            padding: 0.7rem 1.4rem;
-            border-radius: 4px;
-            font-size: 1rem;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 16px;
             cursor: pointer;
-            transition: background-color 0.25s ease;
-            display: block;
-            margin: 0 auto 1rem;
         }
         button:hover {
-            background-color: #163e5a;
+            background-color: #2980b9;
         }
-        .error {
-            color: red;
-            text-align: center;
-            margin-bottom: 1rem;
-            font-weight: bold;
+        .results {
+            margin-top: 30px;
         }
         table {
-            width: 100%;
+            margin: auto;
             border-collapse: collapse;
-            margin-top: 1.5rem;
         }
-        table, th, td {
-            border: 1px solid #ccc;
+        td, th {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
         }
         th {
-            background-color: #1f4e79;
-            color: white;
-            padding: 0.6rem;
+            background-color: #ecf0f1;
         }
-        td {
-            padding: 0.6rem;
-            text-align: center;
-        }
-        .footer-text {
-            margin-top: 3rem;
-            text-align: center;
-            font-style: italic;
-            color: #555;
-            font-size: 0.9rem;
-        }
-        a.download-link {
-            display: block;
-            text-align: center;
-            margin-top: 1.5rem;
-            font-weight: bold;
-            text-decoration: none;
-            color: #1f4e79;
-        }
-        a.download-link:hover {
-            text-decoration: underline;
+        .footer {
+            margin-top: 40px;
+            font-size: 0.9em;
+            color: #7f8c8d;
         }
     </style>
 </head>
 <body>
-    <h1>Dog Scheduling App</h1>
+    <div class="container">
+        <h1>Dog Schedule Sorter 🐶</h1>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" required>
+            <br>
+            <button type="submit">Process Schedule</button>
+        </form>
 
-    {% if error %}
-        <div class="error">{{ error }}</div>
-    {% endif %}
-
-    <form method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".xlsx" required />
-        <button type="submit">Process</button>
-    </form>
-
-    {% if success %}
-        <h2>Schedule Results</h2>
-        <table>
-            <tr>
-                <th>Schedule</th>
-                <th>Human Gap</th>
-                <th>Dog Gap</th>
-            </tr>
-            {% for item in gap_info %}
-                <tr>
-                    <td>{{ item.sheet }}</td>
-                    <td>{{ item.human_gap }}</td>
-                    <td>{{ item.dog_gap }}</td>
-                </tr>
-            {% endfor %}
-        </table>
-
-        {% if failed_sheets %}
-            <p><strong>Scheduling failed for sheets:</strong> {{ failed_sheets | join(", ") }}</p>
+        {% if error %}
+            <p style="color: red;">{{ error }}</p>
         {% endif %}
 
-        <a href="{{ url_for('download_file') }}" class="download-link">Download Sorted Schedule</a>
-    {% endif %}
+        {% if success %}
+            <div class="results">
+                <h2>📊 Schedule Summary</h2>
+                <table>
+                    <tr>
+                        <th>Schedule</th>
+                        <th>Min Human Gap</th>
+                        <th>Min Dog Gap</th>
+                    </tr>
+                    {% for item in gap_info %}
+                        <tr>
+                            <td>{{ item.sheet }}</td>
+                            <td>{{ item.human_gap }}</td>
+                            <td>{{ item.dog_gap }}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
 
-    <div class="footer-text">
-        For my fantastic dog friends....
+                {% if failed_sheets %}
+                    <p style="color: orange;">⚠️ Failed to schedule: {{ failed_sheets | join(', ') }}</p>
+                {% endif %}
+
+                <a href="/download">
+                    <button style="margin-top: 20px;">Download Sorted Schedule</button>
+                </a>
+            </div>
+        {% endif %}
+
+        <div class="footer">
+            For my fantastic dog friends...
+        </div>
     </div>
 </body>
 </html>
