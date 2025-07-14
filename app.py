@@ -21,30 +21,32 @@ def index():
                 return render_template('index.html')
 
             f = request.files['file']
+            filename_base, input_ext = os.path.splitext(f.filename)
+            input_ext = input_ext.lower()
+
+            if input_ext not in ['.xls', '.xlsx']:
+                return "Unsupported file type. Please upload an Excel (.xlsx) file.", 400
+
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
             f.save(filepath)
 
-            output_filename = 'result_' + f.filename
+            output_filename = f'result_{filename_base}.xlsx'
             output_path = os.path.join(app.config['RESULT_FOLDER'], output_filename)
 
-            # Call the scheduling function with file paths
             space_runs_min_gap_hard(input_path=filepath, output_path=output_path)
 
-            if not os.path.exists(output_path):
-                return f"Output file was not created at {output_path}", 500
+            mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
             return send_file(
                 output_path,
-                mimetype='text/csv',
+                mimetype=mimetype,
                 as_attachment=True,
                 download_name=output_filename
             )
 
         except RuntimeError as e:
-            # This handles the "no valid schedule found" case
             return f"Scheduling error: {str(e)}", 400
         except Exception as e:
-            # Catch-all for unexpected errors
             return f"Unexpected error: {str(e)}", 500
 
     return render_template('index.html')
