@@ -1,7 +1,6 @@
 import os
-import pandas as pd
 from flask import Flask, request, render_template, send_file, flash
-from scheduler import space_runs_min_gap_hard  # your existing function
+from scheduler import space_runs_min_gap_hard
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -28,11 +27,11 @@ def index():
             output_filename = 'result_' + f.filename
             output_path = os.path.join(app.config['RESULT_FOLDER'], output_filename)
 
-            # Call your scheduling function with input and output paths
+            # Call the scheduling function with file paths
             space_runs_min_gap_hard(input_path=filepath, output_path=output_path)
 
             if not os.path.exists(output_path):
-                return f"Output file not created at {output_path}", 500
+                return f"Output file was not created at {output_path}", 500
 
             return send_file(
                 output_path,
@@ -40,8 +39,13 @@ def index():
                 as_attachment=True,
                 download_name=output_filename
             )
+
+        except RuntimeError as e:
+            # This handles the "no valid schedule found" case
+            return f"Scheduling error: {str(e)}", 400
         except Exception as e:
-            return f"Error during processing: {str(e)}", 500
+            # Catch-all for unexpected errors
+            return f"Unexpected error: {str(e)}", 500
 
     return render_template('index.html')
 
