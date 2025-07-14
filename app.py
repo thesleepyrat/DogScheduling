@@ -22,7 +22,7 @@ def index():
 
         processed_sheets = {}
         failed_sheets = []
-        gap_info = []  # List of dicts: [{"sheet": name, "human_gap": x, "dog_gap": y}, ...]
+        gap_info = []
 
         max_gap_setting = 8
         time_limit_per_try = 10
@@ -36,13 +36,13 @@ def index():
                 else:
                     processed_sheets[sheet_name] = processed_df
 
-                    # Calculate average human/dog gap from result
+                    # MINIMUM human and dog gap
                     human_gaps = processed_df["Last Human Run"].dropna().astype(int)
                     dog_gaps = processed_df["Last Dog Run"].dropna().astype(int)
                     gap_info.append({
                         "sheet": sheet_name,
-                        "human_gap": human_gaps.mean() if not human_gaps.empty else "N/A",
-                        "dog_gap": dog_gaps.mean() if not dog_gaps.empty else "N/A"
+                        "human_gap": human_gaps.min() if not human_gaps.empty else "N/A",
+                        "dog_gap": dog_gaps.min() if not dog_gaps.empty else "N/A"
                     })
             except Exception as e:
                 print(f"Error processing sheet '{sheet_name}': {e}")
