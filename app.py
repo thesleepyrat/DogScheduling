@@ -19,23 +19,25 @@ def index():
         if 'file' not in request.files or request.files['file'].filename == '':
             flash('No file selected.')
             return render_template('index.html')
+
         f = request.files['file']
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
         f.save(filepath)
 
-        df = pd.read_csv(filepath)
-        result_df = space_runs_min_gap_hard(df)
-
         output_filename = 'result_' + f.filename
         output_path = os.path.join(app.config['RESULT_FOLDER'], output_filename)
-        result_df.to_csv(output_path, index=False)
 
-        return send_file(output_path,
-                         mimetype='text/csv',
-                         as_attachment=True,
-                         download_name=output_filename)
+        # Run your processing function that writes the output file
+        space_runs_min_gap_hard(input_path=filepath, output_path=output_path)
+
+        # Return the output file for immediate download
+        return send_file(
+            output_path,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=output_filename
+        )
 
     return render_template('index.html')
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
+if __name__ == '__main
