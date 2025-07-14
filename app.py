@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_file
+from flask import Flask, request, render_template, send_file, session
 import pandas as pd
 import os
 import tempfile
@@ -7,6 +7,7 @@ from openpyxl.styles import Font, Border
 from scheduler import space_runs_min_gap_hard, find_max_feasible_gap
 
 app = Flask(__name__)
+app.secret_key = "super-secret-key"  # Needed for session to store filename
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -36,7 +37,6 @@ def index():
                 else:
                     processed_sheets[sheet_name] = processed_df
 
-                    # MINIMUM human and dog gap
                     human_gaps = processed_df["Last Human Run"].dropna().astype(int)
                     dog_gaps = processed_df["Last Dog Run"].dropna().astype(int)
                     gap_info.append({
@@ -78,6 +78,8 @@ def index():
         name_part, ext_part = os.path.splitext(original_filename)
         download_filename = f"{name_part}_sorted{ext_part}"
 
+        session["download_filename"] = download_filename
+
         return render_template(
             "index.html",
             gap_info=gap_info,
@@ -93,9 +95,11 @@ def index():
 def download_file():
     temp_dir = tempfile.gettempdir()
     output_path = os.path.join(temp_dir, "processed_schedule.xlsx")
+    download_name = session.get("download_filename", "processed_schedule.xlsx")
     return send_file(
         output_path,
         as_attachment=True,
+        download_name=download_name,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
