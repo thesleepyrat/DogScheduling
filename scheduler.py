@@ -1,9 +1,19 @@
 import pandas as pd
 from ortools.sat.python import cp_model
+from collections import Counter
 
-def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8) -> pd.DataFrame:
-    # Drop rows with missing 'Human' or 'Dog'
+def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8) -> pd.DataFrame | None:
     df = df.dropna(subset=["Human", "Dog"]).reset_index(drop=True)
+    if df.empty:
+        print("⚠️ DataFrame is empty after dropping missing Human or Dog")
+        return None
+
+    print(f"Scheduling {len(df)} runs with min_gap={min_gap}")
+
+    human_counts = Counter(df['Human'])
+    dog_counts = Counter(df['Dog'])
+    print("Human run counts:", human_counts)
+    print("Dog run counts:", dog_counts)
 
     runs = df.to_dict('records')
     n = len(runs)
@@ -12,7 +22,6 @@ def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8) -> pd.DataFrame:
     positions = [model.NewIntVar(0, n - 1, f'pos_{i}') for i in range(n)]
     model.AddAllDifferent(positions)
 
-    # Group runs by human and dog
     human_runs = {}
     dog_runs = {}
     for i, run in enumerate(runs):
@@ -34,11 +43,15 @@ def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8) -> pd.DataFrame:
     model.Minimize(0)
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = 120
+    solver.parameters.log_search_progress = True
+    solver.parameters.max_time_in_seconds = 300  # increase time to 5 minutes
+
     status = solver.Solve(model)
 
+    print(f"Solver status: {solver.StatusName(status)}")
+
     if status not in (cp_model.FEASIBLE, cp_model.OPTIMAL):
-        print(f"No valid schedule found with minimum gap {min_gap}.")
+        print(f"❌ No valid schedule found with min_gap={min_gap}.")
         return None
 
     pos_to_run = [(solver.Value(pos), i) for i, pos in enumerate(positions)]
@@ -68,7 +81,7 @@ def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8) -> pd.DataFrame:
     result_df['Last Dog Run'] = last_dog_run_list
 
     result_df.reset_index(drop=True, inplace=True)
-    result_df.index = result_df.index + 1  # Run number starting at 1
+    result_df.index = result_df.index + 1
     result_df.index.name = "Run Number"
 
     return result_df
