@@ -7,7 +7,7 @@
         body {
             font-family: Arial, sans-serif;
             margin: 3rem auto;
-            max-width: 600px;
+            max-width: 720px;
             background-color: #f9f9f9;
             color: #222;
             padding: 2rem;
@@ -43,17 +43,22 @@
             margin-bottom: 1rem;
             font-weight: bold;
         }
-        ul {
-            list-style: none;
-            padding-left: 0;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.5rem;
         }
-        ul li {
-            background-color: #e8f0fe;
-            margin-bottom: 0.5rem;
-            padding: 0.6rem 1rem;
-            border-radius: 4px;
-            font-weight: bold;
-            color: #0b3d91;
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+        th {
+            background-color: #1f4e79;
+            color: white;
+            padding: 0.6rem;
+        }
+        td {
+            padding: 0.6rem;
+            text-align: center;
         }
         .footer-text {
             margin-top: 3rem;
@@ -65,7 +70,7 @@
         a.download-link {
             display: block;
             text-align: center;
-            margin-bottom: 1.5rem;
+            margin-top: 1.5rem;
             font-weight: bold;
             text-decoration: none;
             color: #1f4e79;
@@ -89,11 +94,20 @@
 
     {% if success %}
         <h2>Schedule Results</h2>
-        <ul>
-            {% for sheet, gap in gap_info.items() %}
-                <li>{{ sheet }}: Minimum Gap = {{ gap }}</li>
+        <table>
+            <tr>
+                <th>Schedule</th>
+                <th>Human Gap</th>
+                <th>Dog Gap</th>
+            </tr>
+            {% for item in gap_info %}
+                <tr>
+                    <td>{{ item.sheet }}</td>
+                    <td>{{ item.human_gap }}</td>
+                    <td>{{ item.dog_gap }}</td>
+                </tr>
             {% endfor %}
-        </ul>
+        </table>
 
         {% if failed_sheets %}
             <p><strong>Scheduling failed for sheets:</strong> {{ failed_sheets | join(", ") }}</p>
