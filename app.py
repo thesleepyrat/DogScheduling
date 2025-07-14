@@ -2,6 +2,8 @@ from flask import Flask, request, render_template, send_file
 import pandas as pd
 import os
 import tempfile
+import openpyxl
+from openpyxl.styles import Font
 from scheduler import space_runs_min_gap_hard, find_max_feasible_gap
 
 app = Flask(__name__)
@@ -47,12 +49,20 @@ def index():
             for sheet_name, df in processed_sheets.items():
                 df.to_excel(writer, sheet_name=sheet_name, index=True)
 
+        # Format Run Number column: only header bold, rest normal
+        wb = openpyxl.load_workbook(output_path)
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            header_cell = ws['A1']
+            header_cell.font = Font(bold=True)
+            for row in range(2, ws.max_row + 1):
+                ws[f'A{row}'].font = Font(bold=False)
+        wb.save(output_path)
+
         msg = None
         if failed_sheets:
             msg = f"Scheduling failed for sheets: {', '.join(failed_sheets)}. Other sheets processed successfully."
 
-        # Pass the message to your template if you want (not shown here)
-        # Or just return file directly
         return send_file(
             output_path,
             as_attachment=True,
