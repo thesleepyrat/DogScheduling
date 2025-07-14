@@ -1,55 +1,49 @@
+from flask import Flask, request, render_template, send_file
+import pandas as pd
 import os
-from flask import Flask, request, render_template, send_file, flash
+import tempfile
 from scheduler import space_runs_min_gap_hard
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
 
-UPLOAD_FOLDER = 'uploads'
-RESULT_FOLDER = 'results'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(RESULT_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['RESULT_FOLDER'] = RESULT_FOLDER
-
-@app.route('/', methods=['GET', 'POST'])
+@app.route("/", methods=["GET", "POST"])
 def index():
-    if request.method == 'POST':
+    if request.method == "POST":
+        file = request.files.get("file")
+        if not file:
+            return render_template("index.html", error="Please upload a file.")
+
         try:
-            if 'file' not in request.files or request.files['file'].filename == '':
-                flash('No file selected.')
-                return render_template('index.html')
+            # Read all sheets as dict of DataFrames
+            all_sheets = pd.read_excel(file, sheet_name=None)
+        except Exception:
+            return render_template("index.html", error="Error reading Excel file. Please upload a valid XLSX.")
 
-            f = request.files['file']
-            filename_base, input_ext = os.path.splitext(f.filename)
-            input_ext = input_ext.lower()
+        processed_sheets = {}
 
-            if input_ext not in ['.xls', '.xlsx']:
-                return "Unsupported file type. Please upload an Excel (.xlsx) file.", 400
+        for sheet_name, df in all_sheets.items():
+            processed_df = space_runs_min_gap_hard(df)
+            if processed_df is None:
+                return render_template("index.html", error=f"Scheduling failed for sheet '{sheet_name}'.")
+            processed_sheets[sheet_name] = processed_df
 
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
-            f.save(filepath)
+        # Save processed sheets to a temporary XLSX file
+        temp_dir = tempfile.gettempdir()
+        output_path = os.path.join(temp_dir, "processed_schedule.xlsx")
 
-            output_filename = f'result_{filename_base}.xlsx'
-            output_path = os.path.join(app.config['RESULT_FOLDER'], output_filename)
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            for sheet_name, df in processed_sheets.items():
+                df.to_excel(writer, sheet_name=sheet_name, index=True)
 
-            space_runs_min_gap_hard(input_path=filepath, output_path=output_path)
+        return send_file(
+            output_path,
+            as_attachment=True,
+            download_name="processed_schedule.xlsx",
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
-            mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    return render_template("index.html")
 
-            return send_file(
-                output_path,
-                mimetype=mimetype,
-                as_attachment=True,
-                download_name=output_filename
-            )
 
-        except RuntimeError as e:
-            return f"Scheduling error: {str(e)}", 400
-        except Exception as e:
-            return f"Unexpected error: {str(e)}", 500
-
-    return render_template('index.html')
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
