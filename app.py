@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import tempfile
 import openpyxl
-from openpyxl.styles import Font
+from openpyxl.styles import Font, Border
 from scheduler import space_runs_min_gap_hard, find_max_feasible_gap
 
 app = Flask(__name__)
@@ -49,7 +49,7 @@ def index():
             for sheet_name, df in processed_sheets.items():
                 df.to_excel(writer, sheet_name=sheet_name, index=True)
 
-        # Format Run Number column: only header bold, rest normal
+        # Format Run Number column: only header bold, rest normal; remove all borders
         wb = openpyxl.load_workbook(output_path)
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
@@ -57,6 +57,12 @@ def index():
             header_cell.font = Font(bold=True)
             for row in range(2, ws.max_row + 1):
                 ws[f'A{row}'].font = Font(bold=False)
+
+            no_border = Border()
+            for row in ws.iter_rows():
+                for cell in row:
+                    cell.border = no_border
+
         wb.save(output_path)
 
         # Generate download filename based on uploaded file
