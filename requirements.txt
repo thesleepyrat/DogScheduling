@@ -1,2 +1,3 @@
-pandas==2.2.2
-ortools==9.8.3296
+Flask==2.3.2
+pandas
+ortools
