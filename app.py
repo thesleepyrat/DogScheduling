@@ -22,14 +22,15 @@ def index():
 
         processed_sheets = {}
         failed_sheets = []
+        gap_info = {}  # store min_gap per sheet
 
-        max_gap_setting = 8  # maximum gap to try (adjust if you want)
-        time_limit_per_try = 10  # seconds for binary search tries
+        max_gap_setting = 8  # max gap to try
+        time_limit_per_try = 10  # seconds per feasibility test
 
         for sheet_name, df in all_sheets.items():
             try:
                 max_gap = find_max_feasible_gap(df, max_gap=max_gap_setting, min_gap=1, time_limit=time_limit_per_try)
-                print(f"Using min_gap={max_gap} for sheet {sheet_name}")
+                gap_info[sheet_name] = max_gap
                 processed_df = space_runs_min_gap_hard(df, min_gap=max_gap)
                 if processed_df is None:
                     failed_sheets.append(sheet_name)
@@ -65,19 +66,34 @@ def index():
 
         wb.save(output_path)
 
-        # Generate download filename based on uploaded file
+        # Create download filename with "_sorted" appended
         original_filename = file.filename or "processed_schedule.xlsx"
         name_part, ext_part = os.path.splitext(original_filename)
         download_filename = f"{name_part}_sorted{ext_part}"
 
-        return send_file(
-            output_path,
-            as_attachment=True,
-            download_name=download_filename,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        return render_template(
+            "index.html",
+            gap_info=gap_info,
+            failed_sheets=failed_sheets,
+            success=True,
+            download_filename=download_filename,
         )
 
     return render_template("index.html")
+
+
+@app.route("/download")
+def download_file():
+    # Serve the file after processing - assume temp path and filename known
+    temp_dir = tempfile.gettempdir()
+    output_path = os.path.join(temp_dir, "processed_schedule.xlsx")
+    # You may want to validate file existence or pass filename via session/cookie
+    return send_file(
+        output_path,
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
