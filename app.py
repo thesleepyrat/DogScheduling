@@ -14,26 +14,39 @@ def index():
             return render_template("index.html", error="Please upload a file.")
 
         try:
-            # Read all sheets as dict of DataFrames
             all_sheets = pd.read_excel(file, sheet_name=None)
         except Exception:
             return render_template("index.html", error="Error reading Excel file. Please upload a valid XLSX.")
 
         processed_sheets = {}
+        failed_sheets = []
+
+        min_gap = 8  # You can change this or add an input field in the form if you want
 
         for sheet_name, df in all_sheets.items():
-            processed_df = space_runs_min_gap_hard(df)
-            if processed_df is None:
-                return render_template("index.html", error=f"Scheduling failed for sheet '{sheet_name}'.")
-            processed_sheets[sheet_name] = processed_df
+            try:
+                processed_df = space_runs_min_gap_hard(df, min_gap=min_gap)
+                if processed_df is None:
+                    failed_sheets.append(sheet_name)
+                else:
+                    processed_sheets[sheet_name] = processed_df
+            except Exception as e:
+                print(f"Error processing sheet '{sheet_name}': {e}")
+                failed_sheets.append(sheet_name)
 
-        # Save processed sheets to a temporary XLSX file
+        if not processed_sheets:
+            return render_template("index.html", error="Scheduling failed for all sheets. Try adjusting min_gap or check your data.")
+
         temp_dir = tempfile.gettempdir()
         output_path = os.path.join(temp_dir, "processed_schedule.xlsx")
 
         with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
             for sheet_name, df in processed_sheets.items():
                 df.to_excel(writer, sheet_name=sheet_name, index=True)
+
+        msg = None
+        if failed_sheets:
+            msg = f"Scheduling failed for sheets: {', '.join(failed_sheets)}. Other sheets processed successfully."
 
         return send_file(
             output_path,
@@ -43,7 +56,7 @@ def index():
         )
 
     return render_template("index.html")
-
+    
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
