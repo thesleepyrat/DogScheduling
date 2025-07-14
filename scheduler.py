@@ -2,7 +2,7 @@ import os
 import pandas as pd
 from ortools.sat.python import cp_model
 
-def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
+def space_runs_min_gap_hard(input_path, output_path, min_gap=8):
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input file not found: {input_path}")
 
@@ -74,11 +74,11 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
     result_df['Last Human Run'] = last_human_run_list
     result_df['Last Dog Run'] = last_dog_run_list
 
-    result_df.reset_index(drop=True, inplace=True)
-    result_df.index = result_df.index + 1
-    result_df.index.name = "Run Order"
+    # Move index to a column called 'Run Number' starting from 1
+    result_df.reset_index(inplace=True)
+    result_df.rename(columns={'index': 'Run Number'}, inplace=True)
 
-    # Instead of writing index=True, write index=False to avoid extra bold column
+    # Save to Excel without pandas index (clean formatting)
     result_df.to_excel(output_path, index=False)
 
     print(f"✅ Schedule saved to {output_path}")
