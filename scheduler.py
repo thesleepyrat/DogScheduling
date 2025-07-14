@@ -1,12 +1,16 @@
+import os
 import pandas as pd
 from ortools.sat.python import cp_model
-import os
 
-def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
+def space_runs_min_gap_hard(input_path, output_path, min_gap=8):
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input file not found: {input_path}")
 
-    df = pd.read_csv(input_path)
+    ext = os.path.splitext(input_path)[1].lower()
+    if ext not in ['.xls', '.xlsx']:
+        raise ValueError("Only XLSX input files are supported now.")
+
+    df = pd.read_excel(input_path)
     df = df.dropna(subset=["Human", "Dog"]).reset_index(drop=True)
 
     runs = df.to_dict('records')
@@ -16,7 +20,6 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
     positions = [model.NewIntVar(0, n - 1, f'pos_{i}') for i in range(n)]
     model.AddAllDifferent(positions)
 
-    # Group runs by human and dog
     human_runs = {}
     dog_runs = {}
     for i, run in enumerate(runs):
@@ -74,7 +77,7 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
     result_df.index = result_df.index + 1
     result_df.index.name = "Run Order"
 
-    result_df.to_csv(output_path, index=True)
+    result_df.to_excel(output_path, index=True)
     print(f"✅ Schedule saved to {output_path}")
 
     return result_df
