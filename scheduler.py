@@ -2,7 +2,7 @@ import pandas as pd
 from ortools.sat.python import cp_model
 import os
 
-def space_runs_min_gap_hard(input_path, output_path, min_gap=8):
+def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input file not found: {input_path}")
 
