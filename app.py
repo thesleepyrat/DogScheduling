@@ -22,20 +22,28 @@ def index():
 
         processed_sheets = {}
         failed_sheets = []
-        gap_info = {}  # store min_gap per sheet
+        gap_info = []  # List of dicts: [{"sheet": name, "human_gap": x, "dog_gap": y}, ...]
 
-        max_gap_setting = 8  # max gap to try
-        time_limit_per_try = 10  # seconds per feasibility test
+        max_gap_setting = 8
+        time_limit_per_try = 10
 
         for sheet_name, df in all_sheets.items():
             try:
                 max_gap = find_max_feasible_gap(df, max_gap=max_gap_setting, min_gap=1, time_limit=time_limit_per_try)
-                gap_info[sheet_name] = max_gap
                 processed_df = space_runs_min_gap_hard(df, min_gap=max_gap)
                 if processed_df is None:
                     failed_sheets.append(sheet_name)
                 else:
                     processed_sheets[sheet_name] = processed_df
+
+                    # Calculate average human/dog gap from result
+                    human_gaps = processed_df["Last Human Run"].dropna().astype(int)
+                    dog_gaps = processed_df["Last Dog Run"].dropna().astype(int)
+                    gap_info.append({
+                        "sheet": sheet_name,
+                        "human_gap": human_gaps.mean() if not human_gaps.empty else "N/A",
+                        "dog_gap": dog_gaps.mean() if not dog_gaps.empty else "N/A"
+                    })
             except Exception as e:
                 print(f"Error processing sheet '{sheet_name}': {e}")
                 failed_sheets.append(sheet_name)
@@ -50,7 +58,7 @@ def index():
             for sheet_name, df in processed_sheets.items():
                 df.to_excel(writer, sheet_name=sheet_name, index=True)
 
-        # Format Run Number column: only header bold, rest normal; remove all borders
+        # Format output file (remove borders, fix Run Number column formatting)
         wb = openpyxl.load_workbook(output_path)
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
@@ -63,10 +71,9 @@ def index():
             for row in ws.iter_rows():
                 for cell in row:
                     cell.border = no_border
-
         wb.save(output_path)
 
-        # Create download filename with "_sorted" appended
+        # Prepare download name
         original_filename = file.filename or "processed_schedule.xlsx"
         name_part, ext_part = os.path.splitext(original_filename)
         download_filename = f"{name_part}_sorted{ext_part}"
@@ -84,10 +91,8 @@ def index():
 
 @app.route("/download")
 def download_file():
-    # Serve the file after processing - assume temp path and filename known
     temp_dir = tempfile.gettempdir()
     output_path = os.path.join(temp_dir, "processed_schedule.xlsx")
-    # You may want to validate file existence or pass filename via session/cookie
     return send_file(
         output_path,
         as_attachment=True,
