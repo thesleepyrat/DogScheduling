@@ -2,7 +2,7 @@ import pandas as pd
 from ortools.sat.python import cp_model
 from collections import Counter
 
-def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8) -> pd.DataFrame | None:
+def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8, time_limit_seconds=120) -> pd.DataFrame | None:
     df = df.dropna(subset=["Human", "Dog"]).reset_index(drop=True)
     if df.empty:
         print("⚠️ DataFrame is empty after dropping missing Human or Dog")
@@ -43,8 +43,8 @@ def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8) -> pd.DataFrame | None:
     model.Minimize(0)
 
     solver = cp_model.CpSolver()
-    solver.parameters.log_search_progress = True
-    solver.parameters.max_time_in_seconds = 300  # increase time to 5 minutes
+    solver.parameters.log_search_progress = False  # Set True to debug solver steps
+    solver.parameters.max_time_in_seconds = time_limit_seconds
 
     status = solver.Solve(model)
 
@@ -85,3 +85,22 @@ def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8) -> pd.DataFrame | None:
     result_df.index.name = "Run Number"
 
     return result_df
+
+
+def find_max_feasible_gap(df: pd.DataFrame, max_gap=8, min_gap=1, time_limit=10) -> int:
+    left = min_gap
+    right = max_gap
+    best_gap = min_gap
+
+    while left <= right:
+        mid = (left + right) // 2
+        print(f"Trying min_gap={mid}...")
+        result_df = space_runs_min_gap_hard(df, min_gap=mid, time_limit_seconds=time_limit)
+        if result_df is not None:
+            best_gap = mid
+            left = mid + 1  # try bigger gap
+        else:
+            right = mid - 1  # try smaller gap
+
+    print(f"Max feasible min_gap: {best_gap}")
+    return best_gap
