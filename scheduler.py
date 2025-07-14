@@ -2,7 +2,7 @@ import os
 import pandas as pd
 from ortools.sat.python import cp_model
 
-def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
+def space_runs_min_gap_hard(input_path, output_path, min_gap=8):
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input file not found: {input_path}")
 
@@ -11,6 +11,7 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
         raise ValueError("Only XLSX input files are supported now.")
 
     df = pd.read_excel(input_path)
+    df.columns = df.columns.str.strip()  # Trim spaces from headers
     df = df.dropna(subset=["Human", "Dog"]).reset_index(drop=True)
 
     runs = df.to_dict('records')
@@ -77,7 +78,9 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
     result_df.index = result_df.index + 1
     result_df.index.name = "Run Order"
 
-    result_df.to_excel(output_path, index=True)
+    # Instead of writing index=True, write index=False to avoid extra bold column
+    result_df.to_excel(output_path, index=False)
+
     print(f"✅ Schedule saved to {output_path}")
 
     return result_df
