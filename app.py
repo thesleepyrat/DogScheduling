@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from flask import Flask, request, render_template, send_file, flash
-from scheduler import space_runs_min_gap_hard   # your existing function
+from scheduler import space_runs_min_gap_hard  # your existing function
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -16,27 +16,32 @@ app.config['RESULT_FOLDER'] = RESULT_FOLDER
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        if 'file' not in request.files or request.files['file'].filename == '':
-            flash('No file selected.')
-            return render_template('index.html')
+        try:
+            if 'file' not in request.files or request.files['file'].filename == '':
+                flash('No file selected.')
+                return render_template('index.html')
 
-        f = request.files['file']
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
-        f.save(filepath)
+            f = request.files['file']
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
+            f.save(filepath)
 
-        output_filename = 'result_' + f.filename
-        output_path = os.path.join(app.config['RESULT_FOLDER'], output_filename)
+            output_filename = 'result_' + f.filename
+            output_path = os.path.join(app.config['RESULT_FOLDER'], output_filename)
 
-        # Run your processing function that writes the output file
-        space_runs_min_gap_hard(input_path=filepath, output_path=output_path)
+            # Call your scheduling function with input and output paths
+            space_runs_min_gap_hard(input_path=filepath, output_path=output_path)
 
-        # Return the output file for immediate download
-        return send_file(
-            output_path,
-            mimetype='text/csv',
-            as_attachment=True,
-            download_name=output_filename
-        )
+            if not os.path.exists(output_path):
+                return f"Output file not created at {output_path}", 500
+
+            return send_file(
+                output_path,
+                mimetype='text/csv',
+                as_attachment=True,
+                download_name=output_filename
+            )
+        except Exception as e:
+            return f"Error during processing: {str(e)}", 500
 
     return render_template('index.html')
 
