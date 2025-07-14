@@ -59,14 +59,15 @@ def index():
                 ws[f'A{row}'].font = Font(bold=False)
         wb.save(output_path)
 
-        msg = None
-        if failed_sheets:
-            msg = f"Scheduling failed for sheets: {', '.join(failed_sheets)}. Other sheets processed successfully."
+        # Generate download filename based on uploaded file
+        original_filename = file.filename or "processed_schedule.xlsx"
+        name_part, ext_part = os.path.splitext(original_filename)
+        download_filename = f"{name_part}_sorted{ext_part}"
 
         return send_file(
             output_path,
             as_attachment=True,
-            download_name="processed_schedule.xlsx",
+            download_name=download_filename,
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
