@@ -1,17 +1,8 @@
-import os
 import pandas as pd
 from ortools.sat.python import cp_model
 
-def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
-    if not os.path.exists(input_path):
-        raise FileNotFoundError(f"Input file not found: {input_path}")
-
-    ext = os.path.splitext(input_path)[1].lower()
-    if ext not in ['.xls', '.xlsx']:
-        raise ValueError("Only XLSX input files are supported now.")
-
-    df = pd.read_excel(input_path)
-    df.columns = df.columns.str.strip()  # Trim spaces from headers
+def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8) -> pd.DataFrame:
+    # Drop rows with missing 'Human' or 'Dog'
     df = df.dropna(subset=["Human", "Dog"]).reset_index(drop=True)
 
     runs = df.to_dict('records')
@@ -21,6 +12,7 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
     positions = [model.NewIntVar(0, n - 1, f'pos_{i}') for i in range(n)]
     model.AddAllDifferent(positions)
 
+    # Group runs by human and dog
     human_runs = {}
     dog_runs = {}
     for i, run in enumerate(runs):
@@ -46,7 +38,8 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
     status = solver.Solve(model)
 
     if status not in (cp_model.FEASIBLE, cp_model.OPTIMAL):
-        raise RuntimeError(f"No valid schedule found with minimum gap {min_gap} for file {input_path}.")
+        print(f"No valid schedule found with minimum gap {min_gap}.")
+        return None
 
     pos_to_run = [(solver.Value(pos), i) for i, pos in enumerate(positions)]
     pos_to_run.sort(key=lambda x: x[0])
@@ -74,12 +67,8 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
     result_df['Last Human Run'] = last_human_run_list
     result_df['Last Dog Run'] = last_dog_run_list
 
-    result_df.reset_index(inplace=True)
-    result_df.rename(columns={'index': 'Run Number'}, inplace=True)
-    result_df['Run Number'] = result_df['Run Number'] + 1  # Start run numbering at 1
-
-    result_df.to_excel(output_path, index=False)
-
-    print(f"✅ Schedule saved to {output_path}")
+    result_df.reset_index(drop=True, inplace=True)
+    result_df.index = result_df.index + 1  # Run number starting at 1
+    result_df.index.name = "Run Number"
 
     return result_df
