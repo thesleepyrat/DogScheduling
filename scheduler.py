@@ -42,10 +42,7 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=8):
     status = solver.Solve(model)
 
     if status not in (cp_model.FEASIBLE, cp_model.OPTIMAL):
-        print(f"No valid schedule found with minimum gap {min_gap} for file {input_path}.")
-        return None
-
-    print(f"Solver status: {solver.StatusName(status)} for file {input_path}")
+        raise RuntimeError(f"No valid schedule found with minimum gap {min_gap} for file {input_path}.")
 
     pos_to_run = [(solver.Value(pos), i) for i, pos in enumerate(positions)]
     pos_to_run.sort(key=lambda x: x[0])
@@ -81,20 +78,3 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=8):
     print(f"✅ Schedule saved to {output_path}")
 
     return result_df
-
-
-if __name__ == "__main__":
-    input_paths = [
-        "C:/Users/Joey/PycharmProjects/pythonProject/TimeWarp/scheduled_run_order_test_name.csv",
-        "C:/Users/Joey/PycharmProjects/pythonProject/Spaced Out/scheduled_run_order_test_name.csv",
-        "C:/Users/Joey/PycharmProjects/pythonProject/Fireball/scheduled_run_order_test_name.csv",
-    ]
-
-    output_folder = "C:/Users/Joey/PycharmProjects/pythonProject/OutputSchedules/"
-    os.makedirs(output_folder, exist_ok=True)
-
-    for input_path in input_paths:
-        folder_name = os.path.basename(os.path.dirname(input_path)).replace(" ", "_")
-        output_path = os.path.join(output_folder, f"test_output_{folder_name}.csv")
-        print(f"Processing {input_path} -> {output_path}")
-        space_runs_min_gap_hard(input_path, output_path, min_gap=7)
