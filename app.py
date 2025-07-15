@@ -1,53 +1,108 @@
+from flask import Flask, request, render_template, send_file, session
+import pandas as pd
 import os
-from flask import Flask, request, render_template, send_file, flash
-from scheduler import space_runs_min_gap_hard
+import tempfile
+import openpyxl
+from openpyxl.styles import Font, Border
+from scheduler import space_runs_min_gap_hard, find_max_feasible_gap
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = "super-secret-key"  # Needed for session to store filename
 
-UPLOAD_FOLDER = 'uploads'
-RESULT_FOLDER = 'results'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(RESULT_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['RESULT_FOLDER'] = RESULT_FOLDER
-
-@app.route('/', methods=['GET', 'POST'])
+@app.route("/", methods=["GET", "POST"])
 def index():
-    if request.method == 'POST':
+    if request.method == "POST":
+        file = request.files.get("file")
+        if not file:
+            return render_template("index.html", error="Please upload a file.")
+
         try:
-            if 'file' not in request.files or request.files['file'].filename == '':
-                flash('No file selected.')
-                return render_template('index.html')
+            all_sheets = pd.read_excel(file, sheet_name=None)
+        except Exception:
+            return render_template("index.html", error="Error reading Excel file. Please upload a valid XLSX.")
 
-            f = request.files['file']
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], f.filename)
-            f.save(filepath)
+        processed_sheets = {}
+        failed_sheets = []
+        gap_info = []
 
-            output_filename = 'result_' + f.filename
-            output_path = os.path.join(app.config['RESULT_FOLDER'], output_filename)
+        max_gap_setting = 8
+        time_limit_per_try = 10
 
-            # Call the scheduling function with file paths
-            space_runs_min_gap_hard(input_path=filepath, output_path=output_path)
+        for sheet_name, df in all_sheets.items():
+            try:
+                max_gap = find_max_feasible_gap(df, max_gap=max_gap_setting, min_gap=1, time_limit=time_limit_per_try)
+                processed_df = space_runs_min_gap_hard(df, min_gap=max_gap)
+                if processed_df is None:
+                    failed_sheets.append(sheet_name)
+                else:
+                    processed_sheets[sheet_name] = processed_df
 
-            if not os.path.exists(output_path):
-                return f"Output file was not created at {output_path}", 500
+                    human_gaps = processed_df["Last Human Run"].dropna().astype(int)
+                    dog_gaps = processed_df["Last Dog Run"].dropna().astype(int)
+                    gap_info.append({
+                        "sheet": sheet_name,
+                        "human_gap": human_gaps.min() if not human_gaps.empty else "N/A",
+                        "dog_gap": dog_gaps.min() if not dog_gaps.empty else "N/A"
+                    })
+            except Exception as e:
+                print(f"Error processing sheet '{sheet_name}': {e}")
+                failed_sheets.append(sheet_name)
 
-            return send_file(
-                output_path,
-                mimetype='text/csv',
-                as_attachment=True,
-                download_name=output_filename
-            )
+        if not processed_sheets:
+            return render_template("index.html", error="Scheduling failed for all sheets. Try adjusting your data or settings.")
 
-        except RuntimeError as e:
-            # This handles the "no valid schedule found" case
-            return f"Scheduling error: {str(e)}", 400
-        except Exception as e:
-            # Catch-all for unexpected errors
-            return f"Unexpected error: {str(e)}", 500
+        temp_dir = tempfile.gettempdir()
+        output_path = os.path.join(temp_dir, "processed_schedule.xlsx")
 
-    return render_template('index.html')
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            for sheet_name, df in processed_sheets.items():
+                df.to_excel(writer, sheet_name=sheet_name, index=True)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
+        # Format output file (remove borders, fix Run Number column formatting)
+        wb = openpyxl.load_workbook(output_path)
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            header_cell = ws['A1']
+            header_cell.font = Font(bold=True)
+            for row in range(2, ws.max_row + 1):
+                ws[f'A{row}'].font = Font(bold=False)
+
+            no_border = Border()
+            for row in ws.iter_rows():
+                for cell in row:
+                    cell.border = no_border
+        wb.save(output_path)
+
+        # Prepare download name
+        original_filename = file.filename or "processed_schedule.xlsx"
+        name_part, ext_part = os.path.splitext(original_filename)
+        download_filename = f"{name_part}_sorted{ext_part}"
+
+        session["download_filename"] = download_filename
+
+        return render_template(
+            "index.html",
+            gap_info=gap_info,
+            failed_sheets=failed_sheets,
+            success=True,
+            download_filename=download_filename,
+        )
+
+    return render_template("index.html")
+
+
+@app.route("/download")
+def download_file():
+    temp_dir = tempfile.gettempdir()
+    output_path = os.path.join(temp_dir, "processed_schedule.xlsx")
+    download_name = session.get("download_filename", "processed_schedule.xlsx")
+    return send_file(
+        output_path,
+        as_attachment=True,
+        download_name=download_name,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)

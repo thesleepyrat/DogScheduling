@@ -1,13 +1,19 @@
 import pandas as pd
 from ortools.sat.python import cp_model
-import os
+from collections import Counter
 
-def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
-    if not os.path.exists(input_path):
-        raise FileNotFoundError(f"Input file not found: {input_path}")
-
-    df = pd.read_csv(input_path)
+def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8, time_limit_seconds=120) -> pd.DataFrame | None:
     df = df.dropna(subset=["Human", "Dog"]).reset_index(drop=True)
+    if df.empty:
+        print("⚠️ DataFrame is empty after dropping missing Human or Dog")
+        return None
+
+    print(f"Scheduling {len(df)} runs with min_gap={min_gap}")
+
+    human_counts = Counter(df['Human'])
+    dog_counts = Counter(df['Dog'])
+    print("Human run counts:", human_counts)
+    print("Dog run counts:", dog_counts)
 
     runs = df.to_dict('records')
     n = len(runs)
@@ -16,7 +22,6 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
     positions = [model.NewIntVar(0, n - 1, f'pos_{i}') for i in range(n)]
     model.AddAllDifferent(positions)
 
-    # Group runs by human and dog
     human_runs = {}
     dog_runs = {}
     for i, run in enumerate(runs):
@@ -38,11 +43,16 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
     model.Minimize(0)
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = 120
+    solver.parameters.log_search_progress = False  # Set True to debug solver steps
+    solver.parameters.max_time_in_seconds = time_limit_seconds
+
     status = solver.Solve(model)
 
+    print(f"Solver status: {solver.StatusName(status)}")
+
     if status not in (cp_model.FEASIBLE, cp_model.OPTIMAL):
-        raise RuntimeError(f"No valid schedule found with minimum gap {min_gap} for file {input_path}.")
+        print(f"❌ No valid schedule found with min_gap={min_gap}.")
+        return None
 
     pos_to_run = [(solver.Value(pos), i) for i, pos in enumerate(positions)]
     pos_to_run.sort(key=lambda x: x[0])
@@ -72,9 +82,25 @@ def space_runs_min_gap_hard(input_path, output_path, min_gap=5):
 
     result_df.reset_index(drop=True, inplace=True)
     result_df.index = result_df.index + 1
-    result_df.index.name = "Run Order"
-
-    result_df.to_csv(output_path, index=True)
-    print(f"✅ Schedule saved to {output_path}")
+    result_df.index.name = "Run Number"
 
     return result_df
+
+
+def find_max_feasible_gap(df: pd.DataFrame, max_gap=8, min_gap=1, time_limit=10) -> int:
+    left = min_gap
+    right = max_gap
+    best_gap = min_gap
+
+    while left <= right:
+        mid = (left + right) // 2
+        print(f"Trying min_gap={mid}...")
+        result_df = space_runs_min_gap_hard(df, min_gap=mid, time_limit_seconds=time_limit)
+        if result_df is not None:
+            best_gap = mid
+            left = mid + 1  # try bigger gap
+        else:
+            right = mid - 1  # try smaller gap
+
+    print(f"Max feasible min_gap: {best_gap}")
+    return best_gap
