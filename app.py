@@ -5,27 +5,18 @@ import tempfile
 import openpyxl
 from openpyxl.styles import Font, Border
 from scheduler import space_runs_min_gap_hard, find_max_feasible_gap
-from flask_cors import CORS
 import logging
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all domains - for testing only
-app.logger.setLevel(logging.DEBUG)
 app.secret_key = "super-secret-key"  # Needed for session to store filename
 
-# Limit max upload size to 16MB (adjust if needed)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+# Set logger to DEBUG to see request info in logs
+app.logger.setLevel(logging.DEBUG)
 
-
-@app.errorhandler(413)
-def request_entity_too_large(error):
-    return "File Too Large", 413
-
-@app.errorhandler(400)
-def bad_request(error):
-    app.logger.error(f"Bad Request: {error}")
-    return "Bad Request", 400
-
+@app.before_request
+def log_request_info():
+    app.logger.debug(f"Request headers: {request.headers}")
+    app.logger.debug(f"Request content length: {request.content_length}")
 
 @app.route("/", methods=["GET", "POST"])
 def index():
