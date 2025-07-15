@@ -3,17 +3,18 @@ from ortools.sat.python import cp_model
 from collections import Counter
 
 def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8, time_limit_seconds=120) -> pd.DataFrame | None:
-    df = df.dropna(subset=["Human", "Dog"]).reset_index(drop=True)
+    df = df.dropna(subset=["Human", "Dog", "Judge"]).reset_index(drop=True)
+
+    # Validate: No judge can also be the handler for the same run
+    for i, row in df.iterrows():
+        if row['Human'] == row['Judge']:
+            raise ValueError(f"Row {i+2}: Judge '{row['Judge']}' cannot be the same as Human '{row['Human']}'")
+
     if df.empty:
-        print("⚠️ DataFrame is empty after dropping missing Human or Dog")
+        print("⚠️ DataFrame is empty after validation.")
         return None
 
     print(f"Scheduling {len(df)} runs with min_gap={min_gap}")
-
-    human_counts = Counter(df['Human'])
-    dog_counts = Counter(df['Dog'])
-    print("Human run counts:", human_counts)
-    print("Dog run counts:", dog_counts)
 
     runs = df.to_dict('records')
     n = len(runs)
@@ -22,11 +23,14 @@ def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8, time_limit_seconds=120)
     positions = [model.NewIntVar(0, n - 1, f'pos_{i}') for i in range(n)]
     model.AddAllDifferent(positions)
 
+    # Group by Human, Dog, Judge
     human_runs = {}
     dog_runs = {}
+    judge_runs = {}
     for i, run in enumerate(runs):
         human_runs.setdefault(run['Human'], []).append(i)
         dog_runs.setdefault(run['Dog'], []).append(i)
+        judge_runs.setdefault(run['Judge'], []).append(i)
 
     def add_hard_min_gap(entity_runs, entity_name):
         for entity, indices in entity_runs.items():
@@ -39,11 +43,12 @@ def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8, time_limit_seconds=120)
 
     add_hard_min_gap(human_runs, "human")
     add_hard_min_gap(dog_runs, "dog")
+    add_hard_min_gap(judge_runs, "judge")
 
     model.Minimize(0)
 
     solver = cp_model.CpSolver()
-    solver.parameters.log_search_progress = False  # Set True to debug solver steps
+    solver.parameters.log_search_progress = False
     solver.parameters.max_time_in_seconds = time_limit_seconds
 
     status = solver.Solve(model)
@@ -58,27 +63,35 @@ def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=8, time_limit_seconds=120)
     pos_to_run.sort(key=lambda x: x[0])
     ordered_runs = [runs[i] for _, i in pos_to_run]
 
+    # Track last seen positions
     last_seen_human = {}
     last_seen_dog = {}
+    last_seen_judge = {}
     last_human_run_list = []
     last_dog_run_list = []
+    last_judge_run_list = []
 
     for idx, run in enumerate(ordered_runs):
         human = run['Human']
         dog = run['Dog']
+        judge = run['Judge']
 
         last_human = idx - last_seen_human[human] if human in last_seen_human else None
         last_dog = idx - last_seen_dog[dog] if dog in last_seen_dog else None
+        last_judge = idx - last_seen_judge[judge] if judge in last_seen_judge else None
 
         last_human_run_list.append(last_human)
         last_dog_run_list.append(last_dog)
+        last_judge_run_list.append(last_judge)
 
         last_seen_human[human] = idx
         last_seen_dog[dog] = idx
+        last_seen_judge[judge] = idx
 
     result_df = pd.DataFrame(ordered_runs)
     result_df['Last Human Run'] = last_human_run_list
     result_df['Last Dog Run'] = last_dog_run_list
+    result_df['Last Judge Run'] = last_judge_run_list
 
     result_df.reset_index(drop=True, inplace=True)
     result_df.index = result_df.index + 1
@@ -95,12 +108,16 @@ def find_max_feasible_gap(df: pd.DataFrame, max_gap=8, min_gap=1, time_limit=10)
     while left <= right:
         mid = (left + right) // 2
         print(f"Trying min_gap={mid}...")
-        result_df = space_runs_min_gap_hard(df, min_gap=mid, time_limit_seconds=time_limit)
-        if result_df is not None:
-            best_gap = mid
-            left = mid + 1  # try bigger gap
-        else:
-            right = mid - 1  # try smaller gap
+        try:
+            result_df = space_runs_min_gap_hard(df.copy(), min_gap=mid, time_limit_seconds=time_limit)
+            if result_df is not None:
+                best_gap = mid
+                left = mid + 1
+            else:
+                right = mid - 1
+        except Exception as e:
+            print(f"Validation error during test at gap {mid}: {e}")
+            right = mid - 1
 
     print(f"Max feasible min_gap: {best_gap}")
     return best_gap
