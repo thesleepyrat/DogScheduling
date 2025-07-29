@@ -2,7 +2,7 @@ import pandas as pd
 from ortools.sat.python import cp_model
 from collections import Counter
 
-def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=3, time_limit_seconds=120) -> pd.DataFrame | None:
+def space_runs_min_gap_hard(df: pd.DataFrame, min_gap=5, time_limit_seconds=120) -> pd.DataFrame | None:
     df = df.dropna(subset=["Human", "Dog"]).reset_index(drop=True)
     if df.empty:
         print("⚠️ DataFrame is empty after dropping missing Human or Dog")
